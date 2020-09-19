@@ -11,54 +11,91 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-import datetime
-
-from flask import Flask, render_template
-
 # [START gae_python38_datastore_store_and_fetch_times]
 from google.cloud import datastore
+from flask import request
+from flask import Flask
+import json
+from flask import jsonify
+from flask_pymongo import PyMongo
+import random
+import string
 
-datastore_client = datastore.Client()
-
-# [END gae_python38_datastore_store_and_fetch_times]
 app = Flask(__name__)
+app.config["MONGO_URI"] = "mongodb://localhost:27017/myDatabase"
+mongo = PyMongo(app)
 
+@app.route('/api/order/create', methods = ["POST"])
+def order_create():
+    req_data = request.get_json()
+    res = ''.join(random.choices(string.ascii_uppercase +
+                                 string.digits, k=4))
+    req_data["order_code"] = res
+    collist = mongo.db.list_collection_names()
+    order_collection = mongo.db["order"]
+    if "order" in collist:
+        print("The collection exists.")
+    else:
+        order_collection = mongo.db["order"]
 
-# [START gae_python38_datastore_store_and_fetch_times]
-def store_time(dt):
-    entity = datastore.Entity(key=datastore_client.key('visit'))
-    entity.update({
-        'timestamp': dt
-    })
+    x = order_collection.insert_one(req_data)
+    req_data["_id"] = str(x.inserted_id)
+    return {"data": req_data}
 
-    datastore_client.put(entity)
+@app.route('/api/order/list')
+def order_list():
+    collist = mongo.db.list_collection_names()
+    if "order" in collist:
+        collection = mongo.db["order"]
+        documents = collection.find()
+        response = []
+        for document in documents:
+            document['_id'] = str(document['_id'])
+            response.append(document)
+        return jsonify({
+            "data": response
+        })
+    return {
+        "data": []
+    }
 
+@app.route('/api/expense/create', methods = ["POST"])
+def expense_create():
+    req_data = request.get_json()
+    res = ''.join(random.choices(string.ascii_uppercase +
+                                 string.digits, k=4))
+    req_data["expense_code"] = res
+    collist = mongo.db.list_collection_names()
+    order_collection = mongo.db["expense"]
+    if "expense" in collist:
+        print("The collection exists.")
+    else:
+        order_collection = mongo.db["expense"]
 
-def fetch_times(limit):
-    query = datastore_client.query(kind='visit')
-    query.order = ['-timestamp']
+    x = order_collection.insert_one(req_data)
+    req_data["_id"] = str(x.inserted_id)
+    return {"data": req_data}
 
-    times = query.fetch(limit=limit)
+@app.route('/api/expense/list')
+def expense_list():
+    collist = mongo.db.list_collection_names()
+    if "expense" in collist:
+        collection = mongo.db["expense"]
+        documents = collection.find()
+        response = []
+        for document in documents:
+            document['_id'] = str(document['_id'])
+            response.append(document)
+        return jsonify({
+            "data": response
+        })
+    return {
+        "data": []
+    }
 
-    return times
-# [END gae_python38_datastore_store_and_fetch_times]
-
-
-# [START gae_python38_datastore_render_times]
 @app.route('/')
-def root():
-    # Store the current access time in Datastore.
-    store_time(datetime.datetime.now())
-
-    # Fetch the most recent 10 access times from Datastore.
-    times = fetch_times(10)
-
-    return render_template(
-        'index.html', times=times)
-# [END gae_python38_datastore_render_times]
-
-
+def hello_world():
+    return 'Hello World!'
 if __name__ == '__main__':
     # This is used when running locally only. When deploying to Google App
     # Engine, a webserver process such as Gunicorn will serve the app. This
